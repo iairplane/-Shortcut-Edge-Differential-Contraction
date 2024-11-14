@@ -1,0 +1,60 @@
+import networkx as nx
+import geopandas as gpd
+import pickle
+from tqdm import tqdm
+from collections import Counter
+import networkx as nx
+
+
+def calculate_shortcuts(graph, node):
+    # 计算收缩节点node后新增的shortcut数量
+    predecessors = list(graph.predecessors(node))
+    successors = list(graph.successors(node))
+
+    shortcuts = 0
+    # 遍历前驱节点和后继节点，检查是否可以通过node形成shortcut
+    for pred in predecessors:
+        for succ in successors:
+            if not graph.has_edge(pred, succ):
+                shortcuts += 1
+    return shortcuts
+
+
+def contraction_hierarchy(graph,shortcut_pair, contraction_ratio=0.3):
+    # 初始化收缩后的图
+    contracted_graph = graph.copy()
+
+    # 确定需要收缩的节点数量
+    num_to_contract = int(len(graph) * contraction_ratio)
+
+    # 收缩节点的列表
+    nodes_to_contract = []
+
+    for _ in tqdm(range(num_to_contract), desc="收缩节点进度", unit="节点"):
+        # 计算当前所有节点的shortcut数量
+        shortcut_count = {node: calculate_shortcuts(contracted_graph, node) for node in contracted_graph.nodes()}
+
+        # 按照shortcut数量从小到大排序节点
+        sorted_nodes = sorted(shortcut_count.items(), key=lambda x: x[1])
+
+        # 选择shortcut数目最少的节点进行收缩
+        node_to_contract = sorted_nodes[0][0]
+        nodes_to_contract.append(node_to_contract)
+
+        predecessors = list(contracted_graph.predecessors(node_to_contract))
+        successors = list(contracted_graph.successors(node_to_contract))
+
+        # 为每个前驱和后继节点建立直接边
+        for pred in predecessors:
+            for succ in successors:
+                if not contracted_graph.has_edge(pred, succ):
+                    contracted_graph.add_edge(pred, succ)
+                    shortcut_pair.add((pred, succ))
+
+        # 删除当前节点
+        contracted_graph.remove_node(node_to_contract)
+
+    return contracted_graph, nodes_to_contract
+
+
+
